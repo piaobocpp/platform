@@ -1,10 +1,11 @@
+// +build windows
+
 // Platform
 package main
 
 import (
     "fmt"
     "log"
-    "runtime"
     "strings"
     "syscall"
     "unsafe"
@@ -30,24 +31,22 @@ type OSVERSIONINFO struct {
 }
 
 func getOSVersion() (maj, min, buildno, plat int, csd string) {
-    if runtime.GOOS == "windows" {
-        var os OSVERSIONINFO
-        os.dwOSVersionInfoSize = uint32(unsafe.Sizeof(os))
+    var os OSVERSIONINFO
+    os.dwOSVersionInfoSize = uint32(unsafe.Sizeof(os))
 
-        dll := syscall.MustLoadDLL("kernel32.dll")
-        p := dll.MustFindProc("GetVersionExW")
+    dll := syscall.MustLoadDLL("kernel32.dll")
+    p := dll.MustFindProc("GetVersionExW")
 
-        v, _, err := p.Call(uintptr(unsafe.Pointer(&os)))
-        if v == FALSE {
-            log.Fatal(err)
-        }
-
-        maj = int(os.dwMajorVersion)
-        min = int(os.dwMinorVersion)
-        buildno = int(os.dwBuildNumber)
-        plat = int(os.dwPlatformId)
-        csd = syscall.UTF16ToString(os.szCSDVersion[:])
+    v, _, err := p.Call(uintptr(unsafe.Pointer(&os)))
+    if v == FALSE {
+        log.Fatal(err)
     }
+
+    maj = int(os.dwMajorVersion)
+    min = int(os.dwMinorVersion)
+    buildno = int(os.dwBuildNumber)
+    plat = int(os.dwPlatformId)
+    csd = syscall.UTF16ToString(os.szCSDVersion[:])
     return
 }
 
@@ -77,15 +76,13 @@ func regQueryStringValue(root syscall.Handle, path, key string) (value string) {
 }
 
 func Platform() (platform string) {
-    if runtime.GOOS == "windows" {
-        maj, min, buildno, plat, csd := getOSVersion()
-        switch plat {
-        case VER_PLATFORM_WIN32_NT:
-            name := regQueryStringValue(syscall.HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName")
-            platform = fmt.Sprintf("%s-%d.%d.%d", strings.Replace(name, " ", "-", -1), maj, min, buildno)
-            if csd != "" {
-                platform = platform + "-" + strings.Replace(csd, " ", "-", -1)
-            }
+    maj, min, buildno, plat, csd := getOSVersion()
+    switch plat {
+    case VER_PLATFORM_WIN32_NT:
+        name := regQueryStringValue(syscall.HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName")
+        platform = fmt.Sprintf("%s-%d.%d.%d", strings.Replace(name, " ", "-", -1), maj, min, buildno)
+        if csd != "" {
+            platform = platform + "-" + strings.Replace(csd, " ", "-", -1)
         }
     }
     return
